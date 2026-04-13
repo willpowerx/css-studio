@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useCallback } from 'react'
 import { Upload, Clipboard, Layers, Download, FolderOpen, Loader2 } from 'lucide-react'
 import { loadProject } from '../utils/projectLoader'
 
@@ -10,16 +10,17 @@ export default function Toolbar({ onLoadHtml, layersOpen, onToggleLayers, onExpo
   const folderRef = useRef()
 
   // webkitdirectory is non-standard — set imperatively to avoid JSX stripping it
-  const folderCallbackRef = (el) => {
+  const folderCallbackRef = useCallback((el) => {
     folderRef.current = el
     if (el) el.setAttribute('webkitdirectory', '')
-  }
+  }, [])
 
   function handleFile(e) {
     const file = e.target.files[0]
     if (!file) return
     const reader = new FileReader()
     reader.onload = ev => onLoadHtml(ev.target.result)
+    reader.onerror = () => console.error('[CSS Studio] File read failed:', reader.error)
     reader.readAsText(file)
     e.target.value = ''
   }
@@ -49,12 +50,12 @@ export default function Toolbar({ onLoadHtml, layersOpen, onToggleLayers, onExpo
       <div className="h-10 bg-neutral-900 border-b border-neutral-800 flex items-center px-3 gap-3 flex-shrink-0">
         <span className="text-xs font-bold tracking-widest text-neutral-200 mr-1">CSS STUDIO</span>
         <div className="h-4 w-px bg-neutral-700" />
-        <button onClick={() => fileRef.current.click()} className="flex items-center gap-1.5 text-xs text-neutral-400 hover:text-neutral-200 transition-colors">
+        <button onClick={() => fileRef.current?.click()} className="flex items-center gap-1.5 text-xs text-neutral-400 hover:text-neutral-200 transition-colors">
           <Upload size={12} /> Open File
         </button>
         <input ref={fileRef} type="file" accept=".html,.htm" className="hidden" onChange={handleFile} />
         <button
-          onClick={() => folderRef.current.click()}
+          onClick={() => folderRef.current?.click()}
           disabled={loading}
           className="flex items-center gap-1.5 text-xs text-neutral-400 hover:text-neutral-200 transition-colors disabled:opacity-50"
         >
