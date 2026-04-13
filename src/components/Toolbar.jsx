@@ -1,10 +1,19 @@
 import { useRef, useState } from 'react'
-import { Upload, Clipboard, Layers, Download } from 'lucide-react'
+import { Upload, Clipboard, Layers, Download, FolderOpen, Loader2 } from 'lucide-react'
+import { loadProject } from '../utils/projectLoader'
 
 export default function Toolbar({ onLoadHtml, layersOpen, onToggleLayers, onExport, canUndo, canRedo, onUndo, onRedo }) {
   const [pasteOpen, setPasteOpen] = useState(false)
   const [pasteValue, setPasteValue] = useState('')
+  const [loading, setLoading] = useState(false)
   const fileRef = useRef()
+  const folderRef = useRef()
+
+  // webkitdirectory is non-standard — set imperatively to avoid JSX stripping it
+  const folderCallbackRef = (el) => {
+    folderRef.current = el
+    if (el) el.setAttribute('webkitdirectory', '')
+  }
 
   function handleFile(e) {
     const file = e.target.files[0]
@@ -21,6 +30,20 @@ export default function Toolbar({ onLoadHtml, layersOpen, onToggleLayers, onExpo
     setPasteValue('')
   }
 
+  async function handleFolder(e) {
+    const files = e.target.files
+    if (!files?.length) return
+    setLoading(true)
+    try {
+      onLoadHtml(await loadProject(files))
+    } catch (err) {
+      console.error('[CSS Studio] Project load failed:', err.message)
+    } finally {
+      setLoading(false)
+      e.target.value = ''
+    }
+  }
+
   return (
     <>
       <div className="h-10 bg-neutral-900 border-b border-neutral-800 flex items-center px-3 gap-3 flex-shrink-0">
@@ -30,6 +53,17 @@ export default function Toolbar({ onLoadHtml, layersOpen, onToggleLayers, onExpo
           <Upload size={12} /> Open File
         </button>
         <input ref={fileRef} type="file" accept=".html,.htm" className="hidden" onChange={handleFile} />
+        <button
+          onClick={() => folderRef.current.click()}
+          disabled={loading}
+          className="flex items-center gap-1.5 text-xs text-neutral-400 hover:text-neutral-200 transition-colors disabled:opacity-50"
+        >
+          {loading
+            ? <><Loader2 size={12} className="animate-spin" /> Loading…</>
+            : <><FolderOpen size={12} /> Load Project</>
+          }
+        </button>
+        <input ref={folderCallbackRef} type="file" multiple className="hidden" onChange={handleFolder} />
         <button onClick={() => setPasteOpen(true)} className="flex items-center gap-1.5 text-xs text-neutral-400 hover:text-neutral-200 transition-colors">
           <Clipboard size={12} /> Paste HTML
         </button>
