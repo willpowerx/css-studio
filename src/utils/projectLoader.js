@@ -17,10 +17,11 @@ export async function loadProject(files) {
 
 function buildFileMap(files) {
   const map = new Map()
-  let prefix = ''
-  for (const file of files) {
+  const fileArray = Array.from(files)
+  const firstPath = fileArray[0]?.webkitRelativePath ?? ''
+  const prefix = firstPath.includes('/') ? firstPath.split('/')[0] + '/' : ''
+  for (const file of fileArray) {
     const path = file.webkitRelativePath || file.name
-    if (!prefix && path.includes('/')) prefix = path.split('/')[0] + '/'
     const rel = prefix && path.startsWith(prefix) ? path.slice(prefix.length) : path
     if (rel) map.set(rel, file)
   }
@@ -124,17 +125,18 @@ async function resolveDocument(html, baseDir, fileMap) {
 
 // --- CSS resolver ---
 
-async function resolveCss(css, baseDir, fileMap) {
+async function resolveCss(css, baseDir, fileMap, visited = new Set()) {
   // Inline @import
-  const importRe = /@import\s+(?:url\(["']?|["'])([^"');\s]+)["']?\)?[^;]*;/g
+  const importRe = /@import\s+(?:url\(\s*["']?|["'])([^"');\s]+)["']?\s*\)?[^;]*;/g
   const imports = []
   let m
   while ((m = importRe.exec(css)) !== null) imports.push({ match: m[0], href: m[1] })
   for (const { match, href } of imports) {
     const path = resolve(baseDir, href)
-    if (!path || !fileMap.has(path)) continue
+    if (!path || !fileMap.has(path) || visited.has(path)) continue
+    visited.add(path)
     const imported = await readText(fileMap.get(path))
-    const resolved = await resolveCss(imported, dirOf(path), fileMap)
+    const resolved = await resolveCss(imported, dirOf(path), fileMap, visited)
     css = css.split(match).join(resolved)
   }
 
