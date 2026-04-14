@@ -1,8 +1,8 @@
 import { useRef, useState, useCallback } from 'react'
-import { Upload, Clipboard, Layers, Download, FolderOpen, Loader2 } from 'lucide-react'
+import { Upload, Clipboard, Layers, Download, FolderOpen, Loader2, Eye, EyeOff } from 'lucide-react'
 import { loadProject } from '../utils/projectLoader'
 
-export default function Toolbar({ onLoadHtml, layersOpen, onToggleLayers, onExport, canUndo, canRedo, onUndo, onRedo }) {
+export default function Toolbar({ onLoadHtml, layersOpen, onToggleLayers, onExport, canUndo, canRedo, onUndo, onRedo, focusMode, onToggleFocusMode }) {
   const [pasteOpen, setPasteOpen] = useState(false)
   const [pasteValue, setPasteValue] = useState('')
   const [loading, setLoading] = useState(false)
@@ -75,7 +75,26 @@ export default function Toolbar({ onLoadHtml, layersOpen, onToggleLayers, onExpo
         <button onClick={onRedo} disabled={!canRedo}
           className="text-xs text-neutral-500 hover:text-neutral-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           title="Redo (⌘⇧Z)">↪</button>
-        <div className="flex-1" />
+        <div className="h-4 w-px bg-neutral-700" />
+        <button
+          onClick={onToggleFocusMode}
+          title="Toggle Focus Mode (F)"
+          className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors ${
+            focusMode
+              ? 'bg-amber-900/40 text-amber-400 border border-amber-800'
+              : 'text-neutral-400 hover:text-neutral-200'
+          }`}
+        >
+          {focusMode ? <EyeOff size={12} /> : <Eye size={12} />}
+          {focusMode ? 'Exit Focus' : 'Focus'}
+        </button>
+        <div className="flex-1 flex items-center justify-center">
+          {focusMode && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-900/30 text-amber-500 border border-amber-900 select-none">
+              Editing Off — press F to resume
+            </span>
+          )}
+        </div>
         <button
           onClick={onToggleLayers}
           className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors ${layersOpen ? 'bg-blue-900/40 text-blue-400 border border-blue-800' : 'text-neutral-400 hover:text-neutral-200'}`}
