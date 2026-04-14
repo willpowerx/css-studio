@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
+import { ChevronRight, ChevronLeft } from 'lucide-react'
 import Toolbar from './components/Toolbar'
 import Preview from './components/Preview'
 import PropertiesPanel from './components/PropertiesPanel'
@@ -16,24 +17,59 @@ export default function App() {
   const [selectedSelector, setSelectedSelector] = useState(null)
   const [currentStyles, setCurrentStyles] = useState({})
   const [layersOpen, setLayersOpen] = useState(false)
+  const [propsPanelOpen, setPropsPanelOpen] = useState(true)
   const [exportOpen, setExportOpen] = useState(false)
   const [contextMenu, setContextMenu] = useState(null)
+  const [focusMode, setFocusMode] = useState(false)
+  const preFocusState = useRef(null)
 
-  const { overrides, setProperty, removeProperty, undo, redo, canUndo, canRedo } = useStyleOverrides(iframeRef)
+  const { overrides, setProperty, undo, redo, canUndo, canRedo } = useStyleOverrides(iframeRef)
   const { tokens, loadFromHtml, upsertToken, deleteToken } = useTokens(iframeRef)
 
-  // Undo/redo keyboard shortcut
+  // latestRef keeps current panel state readable from stable callbacks without stale closures
+  const latestRef = useRef({})
+  latestRef.current = { focusMode, layersOpen, propsPanelOpen }
+
+  const toggleFocusMode = useCallback(() => {
+    const { focusMode, layersOpen, propsPanelOpen } = latestRef.current
+    if (!focusMode) {
+      preFocusState.current = { layersOpen, propsPanelOpen }
+      setLayersOpen(false)
+      setPropsPanelOpen(false)
+      if (iframeRef.current?.contentWindow) {
+        iframeRef.current.contentWindow.__cssStudioEnabled = false
+      }
+      setFocusMode(true)
+    } else {
+      if (preFocusState.current) {
+        setLayersOpen(preFocusState.current.layersOpen)
+        setPropsPanelOpen(preFocusState.current.propsPanelOpen)
+        preFocusState.current = null
+      }
+      if (iframeRef.current?.contentWindow) {
+        iframeRef.current.contentWindow.__cssStudioEnabled = true
+      }
+      setFocusMode(false)
+    }
+  }, [])
+
   useEffect(() => {
     function onKey(e) {
       const mod = e.metaKey || e.ctrlKey
       if (mod && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo() }
       if (mod && (e.key === 'Z' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo() }
+      if ((e.key === 'f' || e.key === 'F') && !mod) {
+        const tag = document.activeElement?.tagName
+        if (tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') {
+          e.preventDefault()
+          toggleFocusMode()
+        }
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [undo, redo])
+  }, [undo, redo, toggleFocusMode])
 
-  // Context menu messages from iframe
   useEffect(() => {
     function onMessage(e) {
       if (e.data?.type === 'css-studio-contextmenu') {
@@ -96,9 +132,11 @@ export default function App() {
         canRedo={canRedo}
         onUndo={undo}
         onRedo={redo}
+        focusMode={focusMode}
+        onToggleFocusMode={toggleFocusMode}
       />
       <div className="flex flex-1 overflow-hidden">
-        {layersOpen && (
+        {layersOpen ? (
           <LayersPanel
             iframeRef={iframeRef}
             selectedSelector={selectedSelector}
@@ -106,16 +144,32 @@ export default function App() {
             tokens={tokens}
             upsertToken={upsertToken}
             deleteToken={deleteToken}
+            onCollapse={() => setLayersOpen(false)}
           />
+        ) : (
+          <div className="w-4 bg-neutral-900 border-r border-neutral-800 flex-shrink-0 flex flex-col items-center pt-2">
+            <button onClick={() => setLayersOpen(true)} title="Show Layers" className="text-neutral-700 hover:text-neutral-400 transition-colors">
+              <ChevronRight size={12} />
+            </button>
+          </div>
         )}
         <Preview ref={iframeRef} srcdoc={srcdoc} />
-        <PropertiesPanel
-          selector={selectedSelector}
-          styles={mergedStyles}
-          overrides={overrides}
-          tokens={tokens}
-          setProperty={setProperty}
-        />
+        {propsPanelOpen ? (
+          <PropertiesPanel
+            selector={selectedSelector}
+            styles={mergedStyles}
+            overrides={overrides}
+            tokens={tokens}
+            setProperty={setProperty}
+            onCollapse={() => setPropsPanelOpen(false)}
+          />
+        ) : (
+          <div className="w-4 bg-neutral-900 border-l border-neutral-800 flex-shrink-0 flex flex-col items-center pt-2">
+            <button onClick={() => setPropsPanelOpen(true)} title="Show Properties" className="text-neutral-700 hover:text-neutral-400 transition-colors">
+              <ChevronLeft size={12} />
+            </button>
+          </div>
+        )}
       </div>
       {contextMenu && (
         <ContextMenu
