@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { ChevronLeft } from 'lucide-react'
+import { usePanelResize } from '../hooks/usePanelResize'
 
 function TreeNode({ node, depth, selectedSelector, onSelect }) {
   const [open, setOpen] = useState(depth < 3)
@@ -61,9 +63,10 @@ function TokensTab({ tokens, upsertToken, deleteToken }) {
   )
 }
 
-export default function LayersPanel({ iframeRef, selectedSelector, onSelect, tokens, upsertToken, deleteToken }) {
+export default function LayersPanel({ iframeRef, selectedSelector, onSelect, tokens, upsertToken, deleteToken, onCollapse }) {
   const [tab, setTab] = useState('layers')
   const [body, setBody] = useState(null)
+  const [width, dragHandleRef] = usePanelResize('css-studio:layers-width', 176, 120, 400, 'right')
 
   useEffect(() => {
     const doc = iframeRef.current?.contentDocument
@@ -71,10 +74,13 @@ export default function LayersPanel({ iframeRef, selectedSelector, onSelect, tok
   })
 
   return (
-    <div className="w-44 bg-neutral-900 border-r border-neutral-800 flex-shrink-0 flex flex-col">
-      <div className="flex border-b border-neutral-800 flex-shrink-0">
+    <div className="relative bg-neutral-900 border-r border-neutral-800 flex-shrink-0 flex flex-col" style={{ width }}>
+      <div className="flex border-b border-neutral-800 flex-shrink-0 items-center">
         <button onClick={() => setTab('layers')} className={`flex-1 text-[10px] py-2 ${tab === 'layers' ? 'text-blue-400 border-b-2 border-blue-500 -mb-px' : 'text-neutral-500 hover:text-neutral-300'}`}>Layers</button>
         <button onClick={() => setTab('tokens')} className={`flex-1 text-[10px] py-2 ${tab === 'tokens' ? 'text-blue-400 border-b-2 border-blue-500 -mb-px' : 'text-neutral-500 hover:text-neutral-300'}`}>Tokens</button>
+        <button onClick={onCollapse} title="Collapse panel" className="px-2 py-2 text-neutral-600 hover:text-neutral-300 border-l border-neutral-800">
+          <ChevronLeft size={10} />
+        </button>
       </div>
       <div className="flex-1 overflow-y-auto py-1">
         {tab === 'layers'
@@ -84,6 +90,11 @@ export default function LayersPanel({ iframeRef, selectedSelector, onSelect, tok
           : <TokensTab tokens={tokens} upsertToken={upsertToken} deleteToken={deleteToken} />
         }
       </div>
+      {/* Drag handle — right edge */}
+      <div
+        ref={dragHandleRef}
+        className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize bg-neutral-800 hover:bg-blue-500/50 active:bg-blue-500/70 z-10 transition-colors"
+      />
     </div>
   )
 }
